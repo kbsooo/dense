@@ -89,6 +89,108 @@ def print_token_stats(samples: list[DensitySample]):
             print(f"    {h.id}({h.num_tokens}t) vs {l.id}({l.num_tokens}t) | diff={diff}")
 
 #%% [markdown]
+# ## Part 1.5: Load PER Results from Manual LLM Queries
+#
+# `per_results/` 폴더의 JSON 파일을 읽어서 expanded_text를 채움.
+# 파일명 = 모델명 (e.g., claude-opus-4.json)
+
+#%%
+def load_per_results(
+    samples: list[DensitySample],
+    results_dir: str = "per_results",
+) -> tuple[list[DensitySample], dict[str, dict]]:
+    """
+    per_results/*.json 파일들을 읽어서 expanded_text를 채움.
+    여러 모델 결과가 있으면 모두 로드해서 per_scores를 모델별로 비교 가능하게 반환.
+
+    Returns:
+        samples: expanded_text가 채워진 샘플 (마지막 모델 기준)
+        all_results: {model_name: {id: per_score}} — 모델별 PER 비교용
+    """
+    results_path = Path(__file__).parent / results_dir
+    result_files = list(results_path.glob("*.json"))
+    result_files = [f for f in result_files if f.name != "template.json"]
+
+    if not result_files:
+        print(f"No result files found in {results_path}")
+        print("Run the prompts from per_prompt.md and save results there.")
+        return samples, {}
+
+    # id → sample 인덱스 매핑
+    id_to_idx = {s.id.upper(): i for i, s in enumerate(samples)}
+
+    all_results = {}  # {model_name: {id: per_score}}
+
+    for result_file in result_files:
+        model_name = result_file.stem
+        with open(result_file) as f:
+            data = json.load(f)
+
+        model_key = data.get("model", model_name)
+        print(f"\nLoaded: {model_key}")
+
+        tokenizer_name = "bert-base-multilingual-cased"
+        from transformers import AutoTokenizer
+        tokenizer = AutoTokenizer.from_pretrained(tokenizer_name)
+
+        per_scores = {}
+        for key, expanded_text in data.items():
+            if key == "model" or not expanded_text:
+                continue
+
+            sentence_id = key.upper()
+            if sentence_id not in id_to_idx:
+                continue
+
+            idx = id_to_idx[sentence_id]
+            sample = samples[idx]
+            sample.expanded_text = expanded_text
+            sample.expanded_num_tokens = len(tokenizer.encode(expanded_text, add_special_tokens=False))
+
+            assert sample.num_tokens and sample.num_tokens > 0
+            sample.per_score = sample.expanded_num_tokens / sample.num_tokens
+            per_scores[sentence_id] = sample.per_score
+
+            print(f"  {sentence_id}: {sample.num_tokens}t → {sample.expanded_num_tokens}t | PER={sample.per_score:.2f}")
+
+        all_results[model_key] = per_scores
+
+    return samples, all_results
+
+
+def compare_per_across_models(all_results: dict[str, dict]) -> None:
+    """
+    여러 모델의 PER 일관성 검증.
+    PER의 재현성이 높아야 유효한 측정임.
+    """
+    if len(all_results) < 2:
+        print("Need at least 2 model results for cross-model comparison.")
+        return
+
+    from scipy import stats
+
+    models = list(all_results.keys())
+    common_ids = set.intersection(*[set(v.keys()) for v in all_results.values()])
+
+    print(f"\n=== Cross-Model PER Consistency ({len(common_ids)} sentences) ===")
+
+    for i in range(len(models)):
+        for j in range(i + 1, len(models)):
+            a = [all_results[models[i]][k] for k in sorted(common_ids)]
+            b = [all_results[models[j]][k] for k in sorted(common_ids)]
+            rho, p = stats.spearmanr(a, b)
+            print(f"  {models[i]} vs {models[j]}: Spearman ρ={rho:.3f}, p={p:.4f}")
+
+    # 고밀도/저밀도 PER 차이가 모델 간에 일관적인가
+    print("\n  Mean PER by density label:")
+    for model, scores in all_results.items():
+        high_per = [v for k, v in scores.items() if "_H" in k]
+        low_per  = [v for k, v in scores.items() if "_L" in k]
+        if high_per and low_per:
+            print(f"  {model}: High={np.mean(high_per):.2f}, Low={np.mean(low_per):.2f}, ratio={np.mean(high_per)/np.mean(low_per):.2f}x")
+
+
+#%% [markdown]
 # ## Part 2: Surprisal Calculation
 # 각 토큰의 surprisal (= -log P(token|context))
 # → 고밀도 문장이 토큰당 surprisal이 높은지, 분산이 큰지
@@ -298,17 +400,24 @@ if __name__ == "__main__":
     samples = count_tokens(samples)
     print_token_stats(samples)
 
-    # 3. Surprisal — 모델에 맞게 수정 필요
-    # 한국어: skt/ko-gpt-trinity-1.2B-v0.5 또는 kakaobrain/kogpt
-    # 영어: gpt2 또는 gpt2-medium
-    # samples = compute_surprisal(samples, model_name="gpt2", device="mps")
+    # 3. Load PER results (per_results/*.json 파일이 있으면 자동으로 읽음)
+    samples, all_results = load_per_results(samples)
 
-    # 4. PER — expanded_text를 수동 또는 API로 채운 후 실행
-    # samples = calculate_per(samples)
+    if all_results:
+        # 여러 모델 결과가 있으면 일관성 검증
+        compare_per_across_models(all_results)
 
-    # 5. Visualize
-    # plot_density_comparison(samples)
-    # correlation_analysis(samples)
+        # 4. Surprisal (선택 — gpt2 또는 한국어 LM 필요)
+        # samples = compute_surprisal(samples, model_name="gpt2", device="mps")
+
+        # 5. 시각화 + 상관관계
+        plot_density_comparison(samples)
+        correlation_analysis(samples)
+    else:
+        print("\n--- Next Step ---")
+        print("1. per_prompt.md 의 프롬프트를 LLM에 붙여넣기")
+        print("2. 결과 JSON을 per_results/<model-name>.json 으로 저장")
+        print("3. 이 스크립트 재실행")
 
 #%% [markdown]
 # ## Next Steps
