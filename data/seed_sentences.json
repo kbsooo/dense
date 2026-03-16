@@ -1,0 +1,175 @@
+{
+  "metadata": {
+    "description": "Seed sentence pairs for text density experiment",
+    "fields": {
+      "id": "unique identifier",
+      "lang": "ko or en",
+      "density": "high or low",
+      "text": "the sentence",
+      "source": "where the sentence comes from",
+      "num_propositions_est": "estimated number of independent propositions (human annotated)"
+    }
+  },
+  "sentences": [
+    {
+      "id": "ko_h01",
+      "lang": "ko",
+      "density": "high",
+      "text": "상부에서 자신들의 권위로 균형 잡힌 정의를 조성해주지 않는데도 다른 사람들의 권리를 자발적으로 존중하는 것은 그리 쉬운 일이 아니다",
+      "source": "하이젠베르크 - 부분과 전체",
+      "num_propositions_est": 5
+    },
+    {
+      "id": "ko_l01",
+      "lang": "ko",
+      "density": "low",
+      "text": "오늘 아침에 일찍 일어나서 따뜻한 물로 세수를 하고 밥을 먹은 다음에 학교에 갔다가 저녁에 집으로 돌아왔다",
+      "source": "synthetic-daily",
+      "num_propositions_est": 6
+    },
+    {
+      "id": "ko_h02",
+      "lang": "ko",
+      "density": "high",
+      "text": "혁명이 숙적을 주인으로 만들지 않는다면 그것만으로도 행운이다",
+      "source": "야코프 부르크하르트",
+      "num_propositions_est": 3
+    },
+    {
+      "id": "ko_l02",
+      "lang": "ko",
+      "density": "low",
+      "text": "그 사람은 어제 서울에서 부산까지 기차를 타고 갔다가 오늘 다시 돌아왔다",
+      "source": "synthetic-daily",
+      "num_propositions_est": 2
+    },
+    {
+      "id": "ko_h03",
+      "lang": "ko",
+      "density": "high",
+      "text": "자유란 책임을 의미한다 그것이 대부분의 사람들이 자유를 두려워하는 이유다",
+      "source": "버나드 쇼",
+      "num_propositions_est": 3
+    },
+    {
+      "id": "ko_l03",
+      "lang": "ko",
+      "density": "low",
+      "text": "나는 어제 친구를 만나서 같이 카페에 가서 커피를 마시고 이야기를 나눴다",
+      "source": "synthetic-daily",
+      "num_propositions_est": 3
+    },
+    {
+      "id": "ko_h04",
+      "lang": "ko",
+      "density": "high",
+      "text": "인간의 모든 불행은 단 하나의 사실에서 비롯된다 그것은 자기 방에 조용히 머물 줄 모른다는 것이다",
+      "source": "파스칼 - 팡세",
+      "num_propositions_est": 4
+    },
+    {
+      "id": "ko_l04",
+      "lang": "ko",
+      "density": "low",
+      "text": "주말에 가족들과 함께 근처 공원에 가서 산책을 하고 벤치에 앉아서 도시락을 먹었다",
+      "source": "synthetic-daily",
+      "num_propositions_est": 3
+    },
+    {
+      "id": "ko_h05",
+      "lang": "ko",
+      "density": "high",
+      "text": "가장 긴 여행은 내면으로 향하는 여행이며 자기 자신을 선택한 자만이 비로소 타인에게 다가갈 자격을 얻는다",
+      "source": "다그 함마르셸드 - 길 표지",
+      "num_propositions_est": 4
+    },
+    {
+      "id": "ko_l05",
+      "lang": "ko",
+      "density": "low",
+      "text": "아침에 지하철을 타고 회사에 갔다가 점심에 근처 식당에서 밥을 먹고 오후에 다시 일했다",
+      "source": "synthetic-daily",
+      "num_propositions_est": 3
+    },
+    {
+      "id": "en_h01",
+      "lang": "en",
+      "density": "high",
+      "text": "The only thing we have to fear is fear itself — nameless, unreasoning, unjustified terror which paralyzes needed efforts to convert retreat into advance.",
+      "source": "FDR - First Inaugural Address",
+      "num_propositions_est": 5
+    },
+    {
+      "id": "en_l01",
+      "lang": "en",
+      "density": "low",
+      "text": "I woke up early this morning, brushed my teeth, got dressed, ate breakfast at the kitchen table, and then drove to work in my car.",
+      "source": "synthetic-daily",
+      "num_propositions_est": 5
+    },
+    {
+      "id": "en_h02",
+      "lang": "en",
+      "density": "high",
+      "text": "He who fights with monsters should look to it that he himself does not become a monster, for when you gaze long into an abyss, the abyss also gazes into you.",
+      "source": "Nietzsche - Beyond Good and Evil",
+      "num_propositions_est": 4
+    },
+    {
+      "id": "en_l02",
+      "lang": "en",
+      "density": "low",
+      "text": "She walked to the store on the corner, bought a bottle of water and a sandwich, then sat on a bench in the park and ate her lunch.",
+      "source": "synthetic-daily",
+      "num_propositions_est": 4
+    },
+    {
+      "id": "en_h03",
+      "lang": "en",
+      "density": "high",
+      "text": "Power tends to corrupt and absolute power corrupts absolutely; great men are almost always bad men, even when they exercise influence and not authority.",
+      "source": "Lord Acton",
+      "num_propositions_est": 4
+    },
+    {
+      "id": "en_l03",
+      "lang": "en",
+      "density": "low",
+      "text": "Yesterday afternoon my brother came over to my house, we watched a movie on the couch, ordered pizza for dinner, and he went home around nine.",
+      "source": "synthetic-daily",
+      "num_propositions_est": 4
+    },
+    {
+      "id": "en_h04",
+      "lang": "en",
+      "density": "high",
+      "text": "The arc of the moral universe is long, but it bends toward justice — though only when enough hands reach up to pull it down.",
+      "source": "MLK (extended)",
+      "num_propositions_est": 4
+    },
+    {
+      "id": "en_l04",
+      "lang": "en",
+      "density": "low",
+      "text": "This morning I took the bus to the library, returned three books that were due, checked out two new ones, and came back home before lunch.",
+      "source": "synthetic-daily",
+      "num_propositions_est": 4
+    },
+    {
+      "id": "en_h05",
+      "lang": "en",
+      "density": "high",
+      "text": "In the middle of difficulty lies opportunity, but recognizing it demands the courage to abandon the certainty of what has already failed.",
+      "source": "adapted from Einstein + Kierkegaard",
+      "num_propositions_est": 4
+    },
+    {
+      "id": "en_l05",
+      "lang": "en",
+      "density": "low",
+      "text": "After work I stopped at the grocery store, picked up some milk and eggs, drove home, cooked a simple dinner, and watched the news on television.",
+      "source": "synthetic-daily",
+      "num_propositions_est": 5
+    }
+  ]
+}
