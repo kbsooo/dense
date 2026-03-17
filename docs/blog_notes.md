@@ -110,6 +110,61 @@ Claude Sonnet은 전반적으로 높은 PER을 줬다 (한국어 High 평균 6.5
 
 ---
 
+## Step 1 결과 — 언어-모델 매칭이 핵심이었다
+
+### v1 (실패): mBERT + GPT-2
+
+**세팅:** mBERT(encoder) + GPT-2(decoder), 한국어+영어 혼합
+**결과:** 모든 신호 p > 0.05 (전부 null)
+
+**원인 분석:**
+1. **모델-언어 불일치** — GPT-2는 영어 전용, 한국어 문장을 byte-level 처리 → 의미 없음
+2. **mBERT** — 한국어를 다루지만 밀도를 구분하도록 학습된 적 없음
+3. 흥미로운 단서: mBERT Layer Delta에서 방향 High < Low (저밀도가 오히려 층간 변화가 더 큼) — 반직관적
+
+### v2 (개선): 언어별 전담 모델 + Qwen3
+
+**세팅:**
+- `klue/bert-base` → KO 전담 encoder (한국어 사전학습)
+- `bert-base-uncased` → EN 전담 encoder
+- `gpt2` → EN decoder baseline
+- `Qwen/Qwen3-0.6B` → KO+EN multilingual modern decoder
+
+**결과:**
+
+| 모델 | 신호 | 방향 | p값 |
+|---|---|---|---|
+| klue/bert-base (KO) | **Layer Delta** | **High > Low** | **0.032 \*** |
+| bert-base-uncased (EN) | 전부 | - | ns |
+| GPT-2 (EN) | 전부 | - | ns |
+| Qwen3-0.6B (KO+EN) | Layer Delta | High < Low | 0.076 (marginal) |
+
+### 핵심 발견
+
+**방향이 뒤집혔다.**
+- mBERT(v1): High < Low (저밀도가 층간 변화 더 큼) — 반직관적
+- klue/bert-base(v2): **High > Low (고밀도가 층간 변화 더 큼)** — 직관에 부합
+
+해석: 한국어 전용 모델을 쓰니 의미론적 압축을 실제로 감지한다.
+고밀도 문장은 레이어를 거치며 더 많은 표현 변환이 필요 — 압축된 의미를 점진적으로 펼치는 것.
+
+**Qwen3 marginal(p=0.076, High < Low):**
+decoder(causal)는 encoder(bidirectional)와 반대 방향 경향.
+→ 처리 패러다임(동시 처리 vs 순차 처리)이 밀도 반응 방식을 바꾼다는 단서.
+
+### 블로그에 쓸 수 있는 서사
+"같은 신호(Layer Delta), 같은 문장 — 모델을 바꾸니 방향이 뒤집혔다.
+언어에 맞는 모델로 실험하니, 비로소 고밀도 문장이 더 많은 층간 변환을 일으킨다는 결과가 나왔다.
+이게 무엇을 의미하는가? 모델이 '언어를 이해'할 때만 밀도 신호가 나타난다.
+그리고 encoder(BERT)와 decoder(Qwen3)는 같은 문장을 처리하는 방향이 반대다."
+
+### 기술적 메모
+- transformers 5.x에서 SDPA가 기본값 → `output_attentions=True`는 `attn_implementation="eager"` 필요
+- Qwen3-0.6B는 BFloat16 → SVD 전 `.float()` 캐스팅 필요
+- Qwen3.5-0.8B는 멀티모달 (image-text-to-text) — 텍스트 전용 실험에 사용 불가
+
+---
+
 ## 앞으로 나올 내용 (나중에 추가할 재료)
 
 ### Step 1: 트랜스포머 내부 관측 (예정)

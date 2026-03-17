@@ -159,11 +159,11 @@ def extract_all_signals(
 
 #%%
 SIGNAL_META = [
-    ("attention_entropy",       "Attention Entropy (bits)",  "분산된 attention → 높음"),
-    ("hidden_state_norm",       "Hidden State L2 Norm",      "정보 인코딩량 → 높음"),
-    ("layer_delta",             "Layer Delta (1−cos sim)",   "층간 표현 변화량 → 높음"),
-    ("effective_rank",          "Effective Rank",            "활용 차원 수 → 높음"),
-    ("mean_attention_distance", "Attention Distance",        "원거리 의존성 → 높음"),
+    ("attention_entropy",       "Attention Entropy (bits)",  "Distributed attn -> high"),
+    ("hidden_state_norm",       "Hidden State L2 Norm",      "More info encoded -> high"),
+    ("layer_delta",             "Layer Delta (1-cos sim)",   "More layer change -> high"),
+    ("effective_rank",          "Effective Rank",            "More dims used -> high"),
+    ("mean_attention_distance", "Attention Distance",        "Long-range deps -> high"),
 ]
 
 def plot_layer_curves(
