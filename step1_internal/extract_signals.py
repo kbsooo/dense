@@ -62,7 +62,8 @@ def compute_attention_entropy(attention_weights: torch.Tensor) -> torch.Tensor:
     # attention_weights[l, h, i, j] = head h가 query i에서 key j에 얼마나 attend하는지
     # entropy는 j 방향 (key) 에 대해 계산
     eps = 1e-10
-    attn = attention_weights + eps  # log(0) 방지
+    # BF16 → float32: log2가 BF16에서 정밀도 손실 + numpy 변환 불가
+    attn = attention_weights.float() + eps  # log(0) 방지
 
     # H = -Σ_j a_{ij} · log(a_{ij}), 각 query position i에 대해
     entropy = -(attn * torch.log2(attn)).sum(dim=-1)  # (layers, heads, seq_len)
@@ -108,7 +109,8 @@ def compute_hidden_state_metrics(
 
         # Effective rank: SVD → singular values의 entropy 기반
         # Insight: 높은 effective rank = 정보가 더 많은 차원에 분산 = 복잡한 표현
-        U, S, V = torch.svd(h)
+        # SVD: MPS 미구현 + BF16 미지원 → float32 CPU로 fallback
+        S = torch.linalg.svdvals(h.float().cpu())
         S_normalized = S / S.sum()
         eff_rank = torch.exp(-(S_normalized * torch.log(S_normalized + 1e-10)).sum()).item()
         eff_ranks.append(eff_rank)
@@ -136,12 +138,14 @@ def compute_attention_distance(attention_weights: torch.Tensor) -> torch.Tensor:
         mean_distance: (num_layers, num_heads)
     """
     seq_len = attention_weights.shape[-1]
+    # BF16 → float32 for numeric stability and numpy compatibility
+    attn = attention_weights.float()
     # position distance matrix: |i - j| for all (i, j)
     positions = torch.arange(seq_len, device=attention_weights.device).float()
     dist_matrix = (positions.unsqueeze(0) - positions.unsqueeze(1)).abs()  # (seq_len, seq_len)
 
     # attention-weighted distance per query position
-    weighted_dist = (attention_weights * dist_matrix.unsqueeze(0).unsqueeze(0)).sum(dim=-1)
+    weighted_dist = (attn * dist_matrix.unsqueeze(0).unsqueeze(0)).sum(dim=-1)
     # (layers, heads, seq_len) → average over query positions
     return weighted_dist.mean(dim=-1)  # (layers, heads)
 
@@ -151,26 +155,28 @@ def compute_attention_distance(attention_weights: torch.Tensor) -> torch.Tensor:
 #%%
 def extract_encoder_signals(
     text: str,
-    model_name: str = "bert-base-multilingual-cased",
+    model_name: str = "klue/bert-base",
     device: str = "mps",
 ) -> InternalSignals:
     """BERT 계열 encoder에서 내부 신호 추출"""
     from transformers import AutoTokenizer, AutoModel
 
     tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModel.from_pretrained(model_name, output_attentions=True).to(device).eval()
+    # attn_implementation="eager": SDPA/FlashAttention은 output_attentions=True 미지원
+    model = AutoModel.from_pretrained(model_name, attn_implementation="eager").to(device).eval()
 
     inputs = tokenizer(text, return_tensors="pt").to(device)
 
     with torch.no_grad():
-        outputs = model(**inputs, output_hidden_states=True)
+        outputs = model(**inputs, output_hidden_states=True, output_attentions=True)
 
     # attentions: tuple of (1, num_heads, seq_len, seq_len) per layer
     attn_stack = torch.stack([a.squeeze(0) for a in outputs.attentions])  # (layers, heads, S, S)
     entropy = compute_attention_entropy(attn_stack)  # (layers, heads)
     attn_dist = compute_attention_distance(attn_stack)
 
-    hs_metrics = compute_hidden_state_metrics(outputs.hidden_states)
+    # hidden_states[0] = embedding layer (attention 없음) → 제외하고 맞춤
+    hs_metrics = compute_hidden_state_metrics(outputs.hidden_states[1:])
 
     return InternalSignals(
         text=text,
@@ -191,26 +197,33 @@ def extract_encoder_signals(
 #%%
 def extract_decoder_signals(
     text: str,
-    model_name: str = "gpt2",
+    model_name: str = "Qwen/Qwen3-0.6B",
     device: str = "mps",
 ) -> InternalSignals:
-    """GPT 계열 decoder에서 내부 신호 추출"""
+    """Decoder-only LM에서 내부 신호 추출 (GPT-2, Qwen3 등)"""
     from transformers import AutoTokenizer, AutoModelForCausalLM
 
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    model = AutoModelForCausalLM.from_pretrained(model_name, output_attentions=True).to(device).eval()
+    tokenizer = AutoTokenizer.from_pretrained(model_name, trust_remote_code=True)
+    if tokenizer.pad_token is None:
+        tokenizer.pad_token = tokenizer.eos_token
+
+    # attn_implementation="eager": SDPA/FlashAttention은 output_attentions=True를 미지원
+    # → eager attention으로 강제해야 attention weights를 반환받을 수 있음
+    model = AutoModelForCausalLM.from_pretrained(
+        model_name, trust_remote_code=True, attn_implementation="eager"
+    ).to(device).eval()
 
     inputs = tokenizer(text, return_tensors="pt").to(device)
 
     with torch.no_grad():
-        outputs = model(**inputs, output_hidden_states=True)
+        outputs = model(**inputs, output_hidden_states=True, output_attentions=True)
 
     # Causal attention: 하삼각 마스크 적용된 attention
     attn_stack = torch.stack([a.squeeze(0) for a in outputs.attentions])
     entropy = compute_attention_entropy(attn_stack)
     attn_dist = compute_attention_distance(attn_stack)
 
-    hs_metrics = compute_hidden_state_metrics(outputs.hidden_states)
+    hs_metrics = compute_hidden_state_metrics(outputs.hidden_states[1:])
 
     return InternalSignals(
         text=text,
