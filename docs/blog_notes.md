@@ -152,11 +152,33 @@ Claude Sonnet은 전반적으로 높은 PER을 줬다 (한국어 High 평균 6.5
 decoder(causal)는 encoder(bidirectional)와 반대 방향 경향.
 → 처리 패러다임(동시 처리 vs 순차 처리)이 밀도 반응 방식을 바꾼다는 단서.
 
+### Step 1 Extension: Surprisal / UID 분석
+
+**Qwen3-0.6B로 토큰별 surprisal (-log2 P) 계산:**
+
+| 지표 | 언어 | 방향 | p값 |
+|---|---|---|---|
+| Mean surprisal | KO | High > Low | 0.032 * |
+| Mean surprisal | EN | High > Low | 0.008 ** |
+| Surprisal CV (변동계수) | KO | **High < Low** | **0.008 \*\*** |
+| Surprisal CV | EN | High < Low | ns |
+
+**해석:**
+1. 고밀도 문장은 토큰당 평균 정보량이 더 높음 (KO: 6.08 vs 4.27 bits, EN: 6.10 vs 4.36 bits)
+2. **한국어 고밀도 문장은 정보가 더 균일하게 배분됨** (CV: 0.68 vs 0.95, p=0.008**)
+   → UID(Uniform Information Density) 가설을 부분 지지
+
+**Qwen3 Layer Delta 역방향 설명:**
+- 고밀도 문장 = 높은 mean surprisal + **낮은 CV** (균일한 surprisal)
+- 균일한 surprisal → 각 토큰에서 모델의 상태 변화가 비슷 → 층간 누적 변화(Layer Delta)가 오히려 낮아짐
+- 반면 저밀도 문장 = 낮은 mean surprisal + **높은 CV** (들쭉날쭉) → 특정 토큰에서 큰 변화 → Layer Delta 높아짐
+
 ### 블로그에 쓸 수 있는 서사
-"같은 신호(Layer Delta), 같은 문장 — 모델을 바꾸니 방향이 뒤집혔다.
-언어에 맞는 모델로 실험하니, 비로소 고밀도 문장이 더 많은 층간 변환을 일으킨다는 결과가 나왔다.
-이게 무엇을 의미하는가? 모델이 '언어를 이해'할 때만 밀도 신호가 나타난다.
-그리고 encoder(BERT)와 decoder(Qwen3)는 같은 문장을 처리하는 방향이 반대다."
+"encoder(BERT)와 decoder(Qwen3)는 같은 문장을 정반대 방향으로 느낀다.
+BERT 계열: 고밀도 문장에서 레이어마다 표현이 더 많이 변한다 (내용을 펼치는 과정).
+Qwen3: 고밀도 문장에서 레이어마다 표현이 오히려 안정적이다. 왜?
+surprisal 분석이 답을 준다 — 고밀도 문장은 토큰당 정보량이 균일하게 분포되어 있다(UID).
+균일한 surprisal = 예측이 고르게 어려움 = 어느 한 토큰에서 '놀라는' 일이 없음 = 층간 표현 변화가 고른 것."
 
 ### 기술적 메모
 - transformers 5.x에서 SDPA가 기본값 → `output_attentions=True`는 `attn_implementation="eager"` 필요
