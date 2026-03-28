@@ -12,11 +12,15 @@ Part 1에서 우리는 트랜스포머의 forward pass를 관찰했다. Encoder(
 
 이미지 생성 AI(Stable Diffusion, DALL-E)를 써봤다면 원리를 안다. 노이즈에서 시작해서 점점 깨끗한 이미지를 만들어간다. 텍스트에도 같은 걸 할 수 있다.
 
-**Discrete Diffusion**의 과정:
-1. 원문의 모든 토큰을 [MASK]로 치환한다 (= 완전한 노이즈)
-2. 모델에게 "이 자리에 뭐가 와야 하지?" 물어본다
-3. 가장 확신하는 위치부터 하나씩 복원한다
-4. 반복한다 — 전체 문장이 완성될 때까지
+**Discrete Diffusion** (D3PM; Austin et al., 2021)은 이산 상태 공간에서의 확산 과정이다. Absorbing state 변형에서, forward process는 각 토큰을 독립적으로 absorbing state $[\text{MASK}]$로 전이시킨다:
+
+$$q(x_t \mid x_0) = \text{Cat}\bigl(x_t;\; (1-\beta_t)\,\mathbf{e}_{x_0} + \beta_t\,\mathbf{e}_{[\text{MASK}]}\bigr)$$
+
+여기서 $\beta_t$는 noise schedule, $\mathbf{e}$는 one-hot 벡터. $t \to T$이면 모든 토큰이 $[\text{MASK}]$가 된다.
+
+Reverse process는 각 step에서 모델 $p_\theta(x_0 \mid x_t)$를 사용하여 마스킹된 위치의 원래 토큰을 예측한다:
+
+$$p_\theta(x_{t-1} \mid x_t) = \sum_{x_0} q(x_{t-1} \mid x_t, x_0)\, p_\theta(x_0 \mid x_t)$$
 
 이 과정에서 모델의 확신도(confidence)와 불확실성(entropy)을 매 스텝마다 기록하면, 문장이 "결정화"되는 궤적을 볼 수 있다.
 
@@ -30,9 +34,13 @@ Part 1에서 우리는 트랜스포머의 forward pass를 관찰했다. Encoder(
 
 대안: **BERT를 discrete diffusion denoiser로 쓴다.**
 
-이건 편법이 아니다. D3PM(Austin et al., 2021)이 보여줬듯이, absorbing state(= [MASK])를 사용하는 discrete diffusion은 masked language model의 iterative decoding과 수학적으로 동치다. BERT의 [MASK] 예측이 곧 denoising step이다.
+이건 편법이 아니다. Absorbing state D3PM에서 reverse step의 핵심 연산은 $p_\theta(x_0 \mid x_t)$ — 마스킹된 토큰의 원래 값을 예측하는 것이다. 이것이 정확히 BERT의 Masked Language Modeling objective:
 
-실제로 이게 MDLM이 하는 일이기도 하다 — 더 정교한 noise schedule을 쓸 뿐, 핵심 메커니즘은 같다.
+$$\mathcal{L}_{\text{MLM}} = -\mathbb{E}_{i \in \mathcal{M}} \bigl[\log P_\theta(x_i \mid \mathbf{x}_{\backslash \mathcal{M}})\bigr]$$
+
+여기서 $\mathcal{M}$은 마스킹된 위치의 집합. BERT의 [MASK] 예측이 곧 denoising step이다.
+
+MDLM(Sahoo et al., 2024)도 이 구조다 — 학습된 continuous-time noise schedule $\beta(t)$를 쓰지만, 핵심 메커니즘은 같다.
 
 그래서 klue/bert-base(한국어)와 bert-base-uncased(영어)를 iterative unmasking engine으로 사용했다.
 
@@ -40,14 +48,18 @@ Part 1에서 우리는 트랜스포머의 forward pass를 관찰했다. Encoder(
 
 ## 결정화 궤적
 
-각 문장에 대해:
-1. 모든 내용 토큰을 [MASK]로 치환
-2. BERT로 각 위치의 확률 분포 예측
-3. 가장 높은 confidence 위치부터 unmask
-4. 매 스텝의 **entropy**(불확실성)와 **confidence**(확신도)를 기록
-5. 모든 토큰이 복원될 때까지 반복
+문장 $s = (t_1, \ldots, t_S)$에 대해:
 
-이렇게 하면 문장마다 "denoising heatmap"이 생긴다. X축은 토큰 위치, Y축은 denoising step. 색은 entropy(빨간색 = 높은 불확실성, 어두운색 = 확정됨).
+1. 모든 content 토큰을 $[\text{MASK}]$로 치환: $x^{(0)} = ([\text{MASK}], \ldots, [\text{MASK}])$
+2. 매 step $k$에서, 모델이 각 위치 $i$의 확률 분포 $P_\theta(v \mid x^{(k)})$를 예측
+3. 각 위치의 **confidence** (확신도)와 **entropy** (불확실성)를 기록:
+
+$$c_i^{(k)} = \max_v P_\theta(v \mid x^{(k)}) \qquad H_i^{(k)} = -\sum_v P_\theta(v \mid x^{(k)}) \log_2 P_\theta(v \mid x^{(k)})$$
+
+4. 아직 마스킹된 위치 중 $c_i^{(k)}$가 가장 높은 위치를 unmask: $x_i^{(k+1)} = \arg\max_v P_\theta(v \mid x^{(k)})$
+5. 모든 토큰이 복원될 때까지 반복 ($k = 1, \ldots, K$ where $K = S$)
+
+이렇게 하면 문장마다 "denoising heatmap"이 생긴다. X축은 토큰 위치 $i$, Y축은 denoising step $k$. 색은 entropy $H_i^{(k)}$ (밝은색 = 높은 불확실성, 어두운색 = 확정됨).
 
 ---
 
@@ -55,9 +67,17 @@ Part 1에서 우리는 트랜스포머의 forward pass를 관찰했다. Encoder(
 
 두 가지 지표를 측정했다:
 
-**Mean Crystallization** — 평균적으로 토큰들이 얼마나 빨리 확정되는가 (0 = 즉시, 1 = 마지막까지 불확실)
+**Mean Crystallization** — 토큰 $i$의 결정화 시점 $\kappa_i$는 해당 토큰이 unmask되는 step 번호다. 문장 수준의 결정화:
 
-**Convergence Area** — entropy 곡선 아래 면적. 전체 denoising 과정에서의 총 불확실성.
+$$\bar{\kappa} = \frac{1}{S}\sum_{i=1}^{S} \frac{\kappa_i}{K}$$
+
+$\bar{\kappa} \approx 0$이면 대부분의 토큰이 즉시 확정, $\bar{\kappa} \approx 1$이면 끝까지 불확실.
+
+**Convergence Area** — 평균 entropy 곡선 아래 면적. 전체 denoising 과정의 총 불확실성:
+
+$$A = \int_0^1 \bar{H}(t)\, dt, \qquad \bar{H}(t) = \frac{1}{S}\sum_{i=1}^{S} H_i^{(\lfloor tK \rfloor)}$$
+
+$A$가 크면 전체 과정에서 불확실성이 오래 높게 유지됨 = 복원이 어려운 문장.
 
 | 모델 | 지표 | 방향 | p값 |
 |---|---|---|---|
