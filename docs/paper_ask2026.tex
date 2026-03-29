@@ -102,7 +102,7 @@ Cross-Paradigm Analysis of Transformer Internal Processing\par}
 
 기존의 텍스트 복잡도 측정법은 이 차이를 포착하지 못한다. Perplexity는 예측 난이도를 측정하지만 ``어려운 단어''와 ``압축된 의미''를 구분하지 못하며, 명제 밀도(propositional density)\cite{kemper1990}는 동사$\cdot$형용사 수를 세는 구조적 접근으로 암묵적 명제를 놓친다.
 
-본 연구의 기여는 세 가지다. 첫째, LLM의 paraphrase 능력을 활용한 새로운 밀도 측정 지표 PER을 제안한다. 둘째, Encoder/Decoder/Diffusion 세 패러다임에서 밀도에 따른 내부 신호 차이를 체계적으로 비교한다. 셋째, 한국어$\cdot$영어 이중 언어 환경에서 밀도 인식의 언어별 차이를 보인다.
+본 연구는 다음 세 가지 연구 질문을 다룬다. \textbf{RQ1}: PER은 서로 다른 LLM 간에도 상대적 순위를 안정적으로 보존하는가? \textbf{RQ2}: 텍스트 밀도는 패러다임별 내부 신호에 일관된 차이를 남기는가? \textbf{RQ3}: 이러한 경향은 한국어와 영어에서 어떻게 다르게 나타나는가?
 
 \section{PER: Paraphrase Expansion Ratio}
 
@@ -118,9 +118,9 @@ Cross-Paradigm Analysis of Transformer Internal Processing\par}
 
 6개 LLM(Claude Opus/Sonnet 4.6, GPT-5.4-pro/thinking, Gemini Flash/3.1 Pro)에 대해 한국어 10문장, 영어 10문장의 PER을 산출하고 Spearman 순위 상관을 계산하였다.
 
-GPT$\cdot$Claude 4개 모델 간 상관은 $\rho{=}0.74{\sim}0.88$\,($p{<}0.001$)로 높은 합의를 보인 반면, Gemini 계열과의 상관은 $\rho{=}{-}0.14{\sim}0.19$\,(n.s.)로 유의미하지 않았다. 이는 PER이 상대적 순위로 사용되어야 함을 시사한다.
+GPT$\cdot$Claude 4개 모델 간 상관은 $\rho{=}0.74{\sim}0.88$\,($p{<}0.001$)로 높은 합의를 보인 반면, Gemini 계열과의 상관은 $\rho{=}{-}0.14{\sim}0.19$\,(n.s.)로 유의미하지 않았다. 이에 따라 최종 PER은 GPT$\cdot$Claude 합의 집합의 median-rank ensemble로 산출하였다.
 
-또한 PER과 Decoder의 surprisal 변동계수 사이에 강한 음의 상관이 관찰되어(한국어 $\rho{=}{-}0.952$, $p{<}0.0001$), PER이 트랜스포머 내부의 정보 분포 균일성과 일관된 지표임을 확인하였다.
+또한 PER과 Decoder의 surprisal 변동계수 사이에 강한 음의 상관이 관찰되어(한국어 $\rho{=}{-}0.952$, $p{<}0.0001$), PER이 트랜스포머 내부의 정보 분포 균일성과 일관된 지표임을 확인하였다(RQ1).
 
 \section{트랜스포머 내부 신호 분석}
 
@@ -247,7 +247,7 @@ Conv.\ $A$     & .94\,ns & .44\,ns & ${<}$.0001*** & ${<}$.0001*** \\
 
 본 연구는 텍스트 밀도가 트랜스포머 내부 처리에 패러다임별로 서로 다른 흔적을 남긴다는 것을 보였다. Encoder에서는 Layer Delta 증가로, Decoder에서는 surprisal의 균일성으로, Diffusion에서는 복원 불확실성 증가로 발현된다. 파일럿 결과는 확대 코퍼스와 minimal pair에서 재현되었다.
 
-한계로는 minimal pair가 구문적 압축만을 통제한 점, 한국어 Diffusion 신호의 null result, BERT 기반 diffusion 근사를 사용한 점이 있다.
+한계로는 minimal pair가 구문적 압축만을 통제한 점, 한국어 Diffusion 신호의 null result, BERT 기반 diffusion 근사를 사용한 점이 있다. 향후 연구에서는 (1)~명제적 밀도를 통제한 코퍼스를 추가 구축하고, (2)~PER 산출 시 프롬프트$\cdot$temperature 등 재현성 조건을 표준화하며, (3)~MDLM\cite{sahoo2024} 등 실제 diffusion language model에서 동일 분석을 반복하고, (4)~한국어 SOV 구조가 diffusion 복원 순서에 미치는 영향을 분석할 계획이다.
 
 \begin{thebibliography}{9}
 \footnotesize
