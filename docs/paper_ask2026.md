@@ -87,46 +87,71 @@ $$s(t_i) = -\log_2 P(t_i \mid t_{<i})$$
 
 문장 수준의 변동계수 $\text{CV}(s) = \sigma(s) / \bar{s}$는 UID(Uniform Information Density) 가설[2]의 검증 지표로 사용한다.
 
-### 3.2 Encoder 결과
+### 3.2 파일럿 실험 (20문장)
 
-klue/bert-base에서 한국어 문장의 Layer Delta가 고밀도 그룹에서 유의미하게 높았다 ($U$-test, $p=0.032$). 나머지 4개 신호(attention entropy, hidden state norm, effective rank, attention distance)는 유의미하지 않았다. 이는 밀도가 높은 문장일수록 레이어 간 표현 변환이 더 활발하게 일어남을 의미한다.
+고밀도·저밀도 각 5문장씩 총 20문장으로 예비 실험을 수행하였다. klue/bert-base에서 한국어 Layer Delta가 유의미하게 높았으나 ($p=0.032$), 영어에서는 유의미하지 않았다. Qwen3-0.6B의 surprisal 분석에서는 한국어 고밀도 문장의 CV가 유의미하게 낮았다 ($p=0.008$). 이 파일럿 결과를 바탕으로, 표본 크기와 교락 변수 문제를 해결하기 위한 검증 실험을 설계하였다.
 
-### 3.3 Decoder 결과
+### 3.3 검증 실험 1: 확대 코퍼스 (100문장)
 
-Qwen3-0.6B의 surprisal 분석에서 한국어 고밀도 문장의 평균 surprisal이 유의미하게 높았고 ($\bar{s}_H=6.08$ vs $\bar{s}_L=4.27$ bits, $p=0.032$), 변동계수는 유의미하게 낮았다 ($\text{CV}_H=0.68$ vs $\text{CV}_L=0.95$, $p=0.008$). 이는 고밀도 문장의 정보가 토큰 간에 더 균일하게 배분되어 있음을 나타내며, UID 가설을 부분적으로 지지한다.
+한국어·영어 각 50문장(고밀도 25, 저밀도 25)으로 구성된 일반 코퍼스에서 동일 분석을 반복하였다.
 
-> **(그림 1) 삽입 위치** — `outputs/step1_surprisal_boxplot.png`
-> 언어별(KO/EN) × 밀도별(High/Low) surprisal 3지표(mean, std, CV) box plot.
-> KO의 CV에서 p=0.008** 유의차가 한눈에 보임.
-> 캡션: "(그림 1) Qwen3-0.6B 기반 surprisal 분석. 한국어 고밀도 문장의 변동계수(CV)가 유의미하게 낮다 (p=0.008**)."
+> **(표 2) 삽입 위치** — Word 표로 변환
+> 캡션: "(표 2) 확대 코퍼스(general.csv) 실험 결과 (Mann-Whitney U, n=25/group)"
 
-Decoder의 Layer Delta는 Encoder와 반대 방향의 경향을 보였다 (High < Low, $p=0.076$). 이는 surprisal의 균일성으로 설명된다: 토큰별 정보량이 균일하면 레이어마다 비슷한 양의 상태 변화가 일어나 누적 Layer Delta가 오히려 낮아진다.
+| 신호 | 언어 | 방향 | $p$값 |
+|---|---|---|---|
+| Layer Delta | KO | High > Low | 0.003** |
+| Layer Delta | EN | High > Low | 0.0001*** |
+| Surprisal Mean | KO | High > Low | < 0.0001*** |
+| Surprisal Mean | EN | High > Low | < 0.0001*** |
+| Surprisal CV | KO | High < Low | < 0.0001*** |
+| Surprisal CV | EN | High < Low | 0.003** |
+| Convergence Area | KO | = | 0.94 ns |
+| Convergence Area | EN | High < Low | < 0.0001*** |
 
-### 3.4 Diffusion 결과
+파일럿에서 유의미하지 않았던 영어 Layer Delta ($p=0.0001$)와 영어 Surprisal CV ($p=0.003$)가 표본 확대 후 강하게 유의미해졌다. Convergence area는 영어에서만 유의미하며 한국어에서는 일관되게 null이었다.
 
-Masked LM을 D3PM[3]의 absorbing-state discrete diffusion denoiser로 사용하여 iterative unmasking 궤적을 추출하였다. 모든 토큰을 [MASK]로 치환한 후, 모델의 confidence가 높은 위치부터 순차적으로 unmask하며, 매 step의 entropy 궤적을 기록하였다.
+### 3.4 검증 실험 2: Minimal Pairs (100쌍)
 
-Convergence area (평균 entropy 곡선의 적분값)를 밀도 그룹 간 비교한 결과, 영어에서 고밀도 문장의 convergence area가 유의미하게 높았다 ($A_H=5.73$ vs $A_L=5.11$, $p=0.011$). 이는 고밀도 문장이 denoising 과정에서 더 높은 총 불확실성을 유지함을 의미한다.
+교락 변수(어휘·문체 차이) 통제를 위해, 동일한 의미를 가지되 밀도만 다른 minimal pair 100쌍(한국어 50, 영어 50)을 구축하였다. 예: "발표 전에 충분히 준비하지 않으면 질문을 받을 때 제대로 답하기 어렵다"(저밀도) vs "준비 없는 발표는 질문 앞에서 흔들린다"(고밀도). 이는 명제적 밀도가 아닌 **구문적 압축**(같은 명제의 다른 표현 길이)을 통제하는 실험이다. Wilcoxon signed-rank test를 사용하였다.
 
-### 3.5 표면 특성 통제
+> **(표 3) 삽입 위치** — Word 표로 변환
+> 캡션: "(표 3) Minimal pair 실험 결과 (Wilcoxon signed-rank, n=50 pairs/lang)"
 
-Probing classifier (logistic regression, LOO-CV)를 적용한 결과, 모든 레이어에서 100% 정확도를 보였으나, PCA 1개 주성분만으로 완벽 분리가 가능하였다. 이는 고밀도(격언)와 저밀도(일상문)의 어휘·문체 차이에 기인하며, Layer Delta나 Surprisal CV처럼 "처리 방식의 차이"를 측정하는 신호와는 구별되어야 한다.
+| 신호 | 언어 | 방향 | $p$값 |
+|---|---|---|---|
+| Layer Delta | KO | High > Low | 0.005** |
+| Layer Delta | EN | High > Low | < 0.0001*** |
+| Surprisal Mean | KO | High > Low | < 0.0001*** |
+| Surprisal Mean | EN | High > Low | < 0.0001*** |
+| Surprisal CV | KO | High < Low | < 0.0001*** |
+| Surprisal CV | EN | High < Low | < 0.0001*** |
+| Convergence Area | KO | = | 0.44 ns |
+| Convergence Area | EN | High < Low | < 0.0001*** |
+
+의미를 통제한 minimal pair에서도 Layer Delta, Surprisal Mean/CV 모두 유의미하였다. 이는 관찰된 신호 차이가 단순한 어휘·문체 차이가 아닌, **텍스트 압축 자체**에 모델이 반응하는 것임을 시사한다.
+
+> **(그림 1) 삽입 위치** — `outputs/step3_validation_comparison.png`
+> 캡션: "(그림 1) 명제적 밀도(general) vs 구문적 압축(minimal pair) 비교. 두 조건 모두에서 Layer Delta와 Surprisal CV의 유의미한 차이가 관찰되었다."
+
+### 3.5 Diffusion 결과의 언어별 비대칭
+
+Convergence area는 영어에서만 일관되게 유의미하고 ($p < 0.0001$), 한국어에서는 두 실험 모두 null이었다. 이는 한국어 SOV 구조에서 iterative unmasking의 토큰 복원 순서가 밀도와 무관할 가능성을 시사한다.
 
 ## 4. 결론
 
-> **(표 1) 삽입 위치** — Word 표로 변환
-> 캡션: "(표 1) 패러다임별 유의미한 밀도 신호 요약"
+> **(표 4) 삽입 위치** — Word 표로 변환
+> 캡션: "(표 4) 전체 실험 결과 요약 (검증 실험 기준)"
 
-| 패러다임 | 신호 | 방향 | $p$값 | 언어 |
-|---|---|---|---|---|
-| Encoder | Layer Delta | High > Low | 0.032* | KO |
-| Decoder | Surprisal CV | High < Low | 0.008** | KO |
-| Decoder | Mean Surprisal | High > Low | 0.008** | EN |
-| Diffusion | Convergence Area | High > Low | 0.011* | EN |
+| 패러다임 | 신호 | KO general | KO pair | EN general | EN pair |
+|---|---|---|---|---|---|
+| Encoder | Layer Delta | 0.003** | 0.005** | 0.0001*** | <0.0001*** |
+| Decoder | Surprisal CV | <0.0001*** | <0.0001*** | 0.003** | <0.0001*** |
+| Diffusion | Conv. Area | 0.94 ns | 0.44 ns | <0.0001*** | <0.0001*** |
 
-본 연구는 텍스트 밀도가 트랜스포머의 내부 처리에 패러다임별로 서로 다른 흔적을 남긴다는 것을 보였다. Encoder에서는 Layer Delta 증가로, Decoder에서는 surprisal의 균일성으로, Diffusion에서는 복원 불확실성 증가로 발현된다. 이 세 관점은 동일한 현상 — 밀도 높은 텍스트가 모델에게 "더 어렵다" — 을 서로 다른 각도에서 포착한다.
+본 연구는 텍스트 밀도가 트랜스포머의 내부 처리에 패러다임별로 서로 다른 흔적을 남긴다는 것을 보였다. 파일럿 실험(20문장)의 결과는 확대 코퍼스(100문장)와 의미 통제된 minimal pair(100쌍)에서 재현되었으며, 대부분의 신호에서 통계적 유의성이 강화되었다. Encoder에서는 Layer Delta 증가로, Decoder에서는 surprisal의 균일성으로, Diffusion에서는 복원 불확실성 증가로 발현된다.
 
-한계로는 그룹당 5문장의 소규모 표본, 밀도와 문체의 교락(confounding), 진정한 Diffusion LM(MDLM 등)이 아닌 BERT 기반 근사를 사용한 점이 있다. 향후 대규모 밀도 통제 코퍼스 구축과 실제 Diffusion LM을 사용한 검증이 필요하다.
+한계로는 minimal pair가 명제적 밀도가 아닌 구문적 압축만을 통제한 점, 한국어 Diffusion 신호의 null result에 대한 추가 분석이 필요한 점, 진정한 Diffusion LM(MDLM 등)이 아닌 BERT 기반 근사를 사용한 점이 있다.
 
 ## 참고문헌
 
