@@ -196,7 +196,25 @@ Conv.\ Area   & EN & H${<}$L & ${<}$.0001*** \\
 
 \subsection{검증 실험 2: Minimal Pairs}
 
-교락 변수 통제를 위해 동일 의미$\cdot$다른 밀도의 minimal pair 100쌍을 구축하였다. 이는 \textbf{구문적 압축}(같은 명제의 다른 표현 길이)을 통제한다. Wilcoxon signed-rank test를 사용하였다(표~\ref{tab:minimal}).
+교락 변수 통제를 위해 동일 의미$\cdot$다른 밀도의 minimal pair 100쌍을 구축하였다(표~\ref{tab:mp_examples}). 이는 \textbf{구문적 압축}(같은 명제의 다른 표현 길이)을 통제한다. Wilcoxon signed-rank test를 사용하였다(표~\ref{tab:minimal}).
+
+\vspace{4pt}
+\begin{center}
+\captionof{table}{Minimal pair 예시 (한국어)}\label{tab:mp_examples}
+\footnotesize
+\begin{tabular}{@{}p{0.47\linewidth}p{0.42\linewidth}@{}}
+\toprule
+저밀도 (풀어쓴 표현) & 고밀도 (압축 표현) \\
+\midrule
+발표 전에 충분히 준비하지 않으면 질문을 받을 때 제대로 답하기 어렵다 & 준비 없는 발표는 질문 앞에서 흔들린다 \\
+\addlinespace
+파일을 백업하지 않은 채 시스템을 업데이트하면 중요한 문서를 잃을 수 있다 & 백업 없는 업데이트는 문서 손실을 부른다 \\
+\addlinespace
+창문에 생긴 작은 금을 그냥 두면 점점 커져서 결국 유리가 깨질 수 있다 & 방치한 금은 결국 유리를 깨뜨린다 \\
+\bottomrule
+\end{tabular}
+\end{center}
+\vspace{4pt}
 
 \vspace{4pt}
 \begin{center}
@@ -221,9 +239,24 @@ Conv.\ Area   & EN & H${<}$L & ${<}$.0001*** \\
 
 의미를 통제한 minimal pair에서도 동일 경향이 재현되었다. 이는 관찰된 차이가 어휘$\cdot$문체가 아닌 텍스트 압축 자체에 대한 모델의 반응임을 시사한다.
 
+\subsection{표면 특성 통제}
+
+내부 신호의 차이가 단순한 어휘$\cdot$문체 차이에 의한 것인지 확인하기 위해 probing classifier(logistic regression, LOO-CV)를 적용하였다. 모든 레이어에서 100\% 정확도를 보였으나, PCA 1개 주성분만으로도 완벽 분리가 가능하였다. 이는 고밀도(격언)와 저밀도(일상문)의 어휘 분포 차이가 크기 때문이며, Layer Delta$\cdot$Surprisal CV처럼 ``처리 방식의 차이''를 측정하는 신호와는 구별되어야 한다. 이러한 교락을 분리하기 위해 상기 minimal pair 실험을 수행하였다.
+
 \subsection{Diffusion 결과의 언어별 비대칭}
 
-Convergence area는 영어에서만 일관되게 유의미하였다. 한국어 SOV 구조에서 iterative unmasking의 복원 순서가 밀도와 무관할 가능성이 있다.
+Convergence area는 영어에서만 일관되게 유의미하였다($p{<}0.0001$). 한국어에서는 두 실험 모두 null이었으며, SOV 구조에서 iterative unmasking의 복원 순서가 밀도와 무관할 가능성이 있다.
+
+\end{multicols}
+
+\begin{figure}[h]
+\centering
+\includegraphics[width=0.95\textwidth]{fig_per_correlation.png}
+\caption{PER과 트랜스포머 내부 신호 간 상관 (원본 20문장). 한국어에서 PER$\leftrightarrow$Surprisal Mean ($\rho{=}0.867$), PER$\leftrightarrow$Surprisal CV ($\rho{=}{-}0.952$)의 강한 상관이 관찰되었다.}
+\label{fig:per_corr}
+\end{figure}
+
+\begin{multicols}{2}
 
 \section{결론}
 
