@@ -1,0 +1,214 @@
+\documentclass[10pt,a4paper,twocolumn]{article}
+\usepackage[utf8]{inputenc}
+\usepackage{kotex}
+\usepackage{amsmath,amssymb}
+\usepackage{booktabs}
+\usepackage{graphicx}
+\usepackage{geometry}
+\geometry{margin=2cm}
+\usepackage{caption}
+\usepackage{url}
+\usepackage{enumitem}
+\setlength{\columnsep}{0.8cm}
+
+\title{\textbf{Paraphrase Expansion Ratio 기반 텍스트 밀도 측정 및\\트랜스포머 패러다임별 내부 처리 차이 분석}}
+\author{강병수\\명지대학교 컴퓨터공학과 학부생\\\texttt{jasonkbs@mju.ac.kr}}
+\date{}
+
+\begin{document}
+
+\twocolumn[
+\maketitle
+\begin{center}
+\large\textbf{\textit{Text Density Measurement via Paraphrase Expansion Ratio and\\Cross-Paradigm Analysis of Transformer Internal Processing}}\\[6pt]
+\normalsize Byung-Soo Kang\\
+Dept.\ of Computer Engineering, Myong-Ji University
+\end{center}
+\vspace{4pt}
+\begin{center}
+\textbf{요\qquad 약}
+\end{center}
+{\small
+텍스트 밀도(Text Density)는 동일한 토큰 수에 담긴 명제적 정보량의 차이를 의미하지만, 이를 정량화하는 표준적 방법은 아직 없다. 본 연구는 LLM 기반의 새로운 밀도 측정 지표인 PER(Paraphrase Expansion Ratio)을 제안하고, 6개 LLM을 통해 교차 검증한다. 또한 Encoder(klue/bert-base), Decoder(Qwen3-0.6B), Diffusion(BERT iterative unmasking) 세 가지 트랜스포머 패러다임에서 밀도에 따른 내부 처리 차이를 분석한다. 파일럿 실험(20문장)의 결과를 확대 코퍼스(100문장)와 의미 통제된 minimal pair(100쌍)로 검증한 결과, Encoder에서는 고밀도 문장의 Layer Delta가 유의미하게 높고($p=0.003$), Decoder에서는 surprisal 변동계수가 유의미하게 낮으며($p<0.0001$), Diffusion에서는 영어 convergence area가 유의미하게 높았다($p<0.0001$). 이는 동일한 밀도 속성이 패러다임에 따라 서로 다른 내부 신호로 발현됨을 보여준다.
+}
+\vspace{12pt}
+]
+
+\section{서론}
+
+자연어 텍스트에는 밀도(density)라는 속성이 존재한다. ``혁명이 숙적을 주인으로 만들지 않는다면 그것만으로도 행운이다''(부르크하르트)와 ``오늘 아침에 일찍 일어나서 따뜻한 물로 세수를 하고 밥을 먹었다''는 비슷한 토큰 수를 가지지만, 전자를 풀어쓰면 7배 이상 길어진다. 이 차이는 단순한 어휘 난이도가 아닌 명제적 압축도(propositional compression)에 기인한다.
+
+기존의 텍스트 복잡도 측정법은 이 차이를 포착하지 못한다. Perplexity는 예측 난이도를 측정하지만 ``어려운 단어''와 ``압축된 의미''를 구분하지 못하며, 명제 밀도(propositional density)\cite{kemper1990}는 동사$\cdot$형용사 수를 세는 구조적 접근으로 암묵적 명제를 놓친다.
+
+본 연구의 기여는 세 가지다. 첫째, LLM의 paraphrase 능력을 활용한 새로운 밀도 측정 지표 PER을 제안한다. 둘째, Encoder/Decoder/Diffusion 세 패러다임에서 밀도에 따른 내부 신호 차이를 체계적으로 비교한다. 셋째, 한국어$\cdot$영어 이중 언어 환경에서 밀도 인식의 언어별 차이를 보인다.
+
+\section{PER: Paraphrase Expansion Ratio}
+
+\subsection{정의}
+
+문장 $s$의 PER은 LLM이 생성한 풀어쓴 버전과 원문의 토큰 수 비율로 정의된다.
+\begin{equation}
+\mathrm{PER}(s) = \frac{|\mathrm{tokens}(\mathrm{paraphrase}(s))|}{|\mathrm{tokens}(s)|}
+\end{equation}
+Paraphrase 프롬프트는 ``모든 암묵적 전제와 함축을 명시적으로 풀어 초등학생이 이해할 수 있게 재작성하라''로 통일하였다.
+
+\subsection{교차 검증}
+
+PER의 측정 도구가 LLM이므로 모델 간 일관성 검증이 필수적이다. 6개 LLM(Claude Opus 4.6, Claude Sonnet 4.6, GPT-5.4-pro, GPT-5.4-thinking, Gemini Flash, Gemini 3.1 Pro)에 대해 한국어 10문장, 영어 10문장의 PER을 산출하고 Spearman 순위 상관을 계산하였다.
+
+GPT$\cdot$Claude 4개 모델 간 상관은 $\rho=0.74{\sim}0.88$\,($p<0.001$)로 높은 합의를 보인 반면, Gemini 계열과의 상관은 $\rho=-0.14{\sim}0.19$\,(n.s.)로 유의미하지 않았다. 이는 PER이 절대값이 아닌 상대적 순위로 사용되어야 함을 시사한다. 한국어 고밀도 문장이 가장 안정적으로 인식되었다\,($\mathrm{CV}=0.27{\sim}0.28$).
+
+\section{트랜스포머 내부 신호 분석}
+
+\subsection{실험 설계}
+
+4개 모델을 언어별로 매칭하여 사용하였다(표~\ref{tab:models}). 5개 내부 신호를 측정하였으며, 본 논문에서는 유의미한 결과를 보인 신호를 중심으로 보고한다.
+
+\begin{table}[h]
+\centering
+\caption{실험에 사용한 모델 구성}
+\label{tab:models}
+\small
+\begin{tabular}{llll}
+\toprule
+모델 & 유형 & 언어 & 파라미터 \\
+\midrule
+klue/bert-base    & Encoder & KO    & 110M \\
+bert-base-uncased & Encoder & EN    & 110M \\
+gpt2              & Decoder & EN    & 124M \\
+Qwen3-0.6B       & Decoder & KO/EN & 600M \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Layer Delta.}
+연속된 레이어 $l$과 $l{-}1$ 사이의 표현 변화량은 다음과 같이 정의한다.
+\begin{equation}
+\delta_l = 1 - \cos(\bar{\mathbf{h}}_l,\;\bar{\mathbf{h}}_{l-1})
+\end{equation}
+여기서 $\bar{\mathbf{h}}_l$은 토큰 차원에 대한 mean-pooled hidden state이다.
+
+\paragraph{Surprisal.}
+Causal LM에서 토큰 $t_i$의 정보량은 다음과 같다.
+\begin{equation}
+s(t_i) = -\log_2 P(t_i \mid t_{<i})
+\end{equation}
+문장 수준의 변동계수 $\mathrm{CV}(s) = \sigma(s)/\bar{s}$는 UID(Uniform Information Density) 가설\cite{levy2007}의 검증 지표로 사용한다.
+
+\paragraph{Convergence Area.}
+Masked LM을 D3PM\cite{austin2021}의 absorbing-state discrete diffusion denoiser로 사용하여 iterative unmasking 궤적을 추출하고, 평균 entropy 곡선의 적분값 $A = \int_0^1 \bar{H}(t)\,dt$를 측정한다.
+
+\subsection{파일럿 실험 (20문장)}
+
+고밀도$\cdot$저밀도 각 5문장씩 총 20문장으로 예비 실험을 수행하였다. klue/bert-base에서 한국어 Layer Delta가 유의미하게 높았으나\,($p=0.032$), 영어에서는 유의미하지 않았다. Qwen3-0.6B의 surprisal CV는 한국어에서 유의미하게 낮았다\,($p=0.008$). 이 파일럿 결과를 바탕으로 표본 크기와 교락 변수 문제를 해결하기 위한 검증 실험을 설계하였다.
+
+\subsection{검증 실험 1: 확대 코퍼스 (100문장)}
+
+한국어$\cdot$영어 각 50문장(고밀도 25, 저밀도 25)으로 구성된 일반 코퍼스에서 동일 분석을 반복하였다(표~\ref{tab:general}).
+
+\begin{table}[h]
+\centering
+\caption{확대 코퍼스 실험 결과 (Mann-Whitney $U$, $n$=25/group)}
+\label{tab:general}
+\small
+\begin{tabular}{llll}
+\toprule
+신호 & 언어 & 방향 & $p$값 \\
+\midrule
+Layer Delta     & KO & H $>$ L & 0.003**   \\
+Layer Delta     & EN & H $>$ L & 0.0001*** \\
+Surprisal Mean  & KO & H $>$ L & $<$0.0001***  \\
+Surprisal Mean  & EN & H $>$ L & $<$0.0001***  \\
+Surprisal CV    & KO & H $<$ L & $<$0.0001***  \\
+Surprisal CV    & EN & H $<$ L & 0.003**   \\
+Conv.\ Area     & KO & ---     & 0.94\,ns  \\
+Conv.\ Area     & EN & H $<$ L & $<$0.0001***  \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+파일럿에서 유의미하지 않았던 영어 Layer Delta\,($p=0.0001$)와 영어 Surprisal CV\,($p=0.003$)가 표본 확대 후 강하게 유의미해졌다.
+
+\subsection{검증 실험 2: Minimal Pairs (100쌍)}
+
+교락 변수(어휘$\cdot$문체 차이) 통제를 위해, 동일한 의미를 가지되 밀도만 다른 minimal pair 100쌍(한국어 50, 영어 50)을 구축하였다. 예: ``발표 전에 충분히 준비하지 않으면 질문을 받을 때 제대로 답하기 어렵다''(저밀도) vs ``준비 없는 발표는 질문 앞에서 흔들린다''(고밀도). 이는 명제적 밀도가 아닌 \textbf{구문적 압축}(같은 명제의 다른 표현 길이)을 통제하는 실험이다. Wilcoxon signed-rank test를 사용하였다(표~\ref{tab:minimal}).
+
+\begin{table}[h]
+\centering
+\caption{Minimal pair 실험 결과 (Wilcoxon, $n$=50 pairs/lang)}
+\label{tab:minimal}
+\small
+\begin{tabular}{llll}
+\toprule
+신호 & 언어 & 방향 & $p$값 \\
+\midrule
+Layer Delta     & KO & H $>$ L & 0.005**   \\
+Layer Delta     & EN & H $>$ L & $<$0.0001*** \\
+Surprisal Mean  & KO & H $>$ L & $<$0.0001*** \\
+Surprisal Mean  & EN & H $>$ L & $<$0.0001*** \\
+Surprisal CV    & KO & H $<$ L & $<$0.0001*** \\
+Surprisal CV    & EN & H $<$ L & $<$0.0001*** \\
+Conv.\ Area     & KO & ---     & 0.44\,ns  \\
+Conv.\ Area     & EN & H $<$ L & $<$0.0001*** \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+의미를 통제한 minimal pair에서도 Layer Delta, Surprisal Mean/CV 모두 유의미하였다. 이는 관찰된 신호 차이가 단순한 어휘$\cdot$문체 차이가 아닌, 텍스트 압축 자체에 모델이 반응하는 것임을 시사한다.
+
+\subsection{Diffusion 결과의 언어별 비대칭}
+
+Convergence area는 영어에서만 일관되게 유의미하고\,($p < 0.0001$), 한국어에서는 두 실험 모두 null이었다. 이는 한국어 SOV 구조에서 iterative unmasking의 토큰 복원 순서가 밀도와 무관할 가능성을 시사한다.
+
+\section{결론}
+
+\begin{table}[h]
+\centering
+\caption{전체 실험 결과 요약 (검증 실험 기준)}
+\label{tab:summary}
+\small
+\begin{tabular}{lllll}
+\toprule
+패러다임 & 신호 & KO gen. & KO pair & EN gen. \\
+\midrule
+Encoder  & Layer $\delta$ & .003** & .005** & .0001*** \\
+Decoder  & Surp.\ CV      & $<$.0001*** & $<$.0001*** & .003** \\
+Diffusion & Conv.\ $A$    & .94\,ns & .44\,ns & $<$.0001*** \\
+\bottomrule
+\multicolumn{5}{l}{\footnotesize EN pair: Layer $\delta$ $<$.0001***, Surp.\ CV $<$.0001***, Conv.\ $A$ $<$.0001***}
+\end{tabular}
+\end{table}
+
+본 연구는 텍스트 밀도가 트랜스포머의 내부 처리에 패러다임별로 서로 다른 흔적을 남긴다는 것을 보였다. 파일럿 실험(20문장)의 결과는 확대 코퍼스(100문장)와 의미 통제된 minimal pair(100쌍)에서 재현되었으며, 대부분의 신호에서 통계적 유의성이 강화되었다. Encoder에서는 Layer Delta 증가로, Decoder에서는 surprisal의 균일성으로, Diffusion에서는 복원 불확실성 증가로 발현된다.
+
+한계로는 minimal pair가 명제적 밀도가 아닌 구문적 압축만을 통제한 점, 한국어 Diffusion 신호의 null result에 대한 추가 분석이 필요한 점, 진정한 Diffusion LM(MDLM\cite{sahoo2024} 등)이 아닌 BERT 기반 근사를 사용한 점이 있다.
+
+\begin{thebibliography}{9}
+\bibitem{kemper1990}
+S.~Kemper, A.~Rash, D.~Kynette, and S.~Norman,
+``Telling stories: The structure of adults' narratives,''
+\textit{European J.\ of Cognitive Psychology}, vol.~2, no.~3, pp.~205--228, 1990.
+
+\bibitem{levy2007}
+R.~Levy and T.~Jaeger,
+``Speakers optimize information density through syntactic reduction,''
+\textit{Advances in NeurIPS}, vol.~20, 2007.
+
+\bibitem{austin2021}
+J.~Austin, D.~Johnson, J.~Ho, D.~Tarlow, and R.~van den Berg,
+``Structured denoising diffusion models in discrete state-spaces,''
+\textit{Advances in NeurIPS}, vol.~34, pp.~17981--17993, 2021.
+
+\bibitem{sahoo2024}
+S.~Sahoo \textit{et al.},
+``Simple and effective masked diffusion language models,''
+\textit{Advances in NeurIPS}, vol.~37, 2024.
+
+\bibitem{kluebert}
+KLUE BERT: \url{https://huggingface.co/klue/bert-base}
+
+\bibitem{qwen2025}
+Qwen Team, ``Qwen3 Technical Report,'' 2025.
+\end{thebibliography}
+
+\end{document}
