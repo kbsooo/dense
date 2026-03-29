@@ -120,6 +120,8 @@ Cross-Paradigm Analysis of Transformer Internal Processing\par}
 
 GPT$\cdot$Claude 4개 모델 간 상관은 $\rho{=}0.74{\sim}0.88$\,($p{<}0.001$)로 높은 합의를 보인 반면, Gemini 계열과의 상관은 $\rho{=}{-}0.14{\sim}0.19$\,(n.s.)로 유의미하지 않았다. 이는 PER이 상대적 순위로 사용되어야 함을 시사한다.
 
+또한 PER과 Decoder의 surprisal 변동계수 사이에 강한 음의 상관이 관찰되어(한국어 $\rho{=}{-}0.952$, $p{<}0.0001$), PER이 트랜스포머 내부의 정보 분포 균일성과 일관된 지표임을 확인하였다.
+
 \section{트랜스포머 내부 신호 분석}
 
 \subsection{실험 설계}
@@ -190,7 +192,7 @@ Conv.\ Area   & EN & H${<}$L & ${<}$.0001*** \\
 \end{center}
 \vspace{4pt}
 
-파일럿에서 n.s.였던 영어 Layer Delta($p{=}.0001$)와 Surprisal CV($p{=}.003$)가 표본 확대 후 유의미해졌다.
+파일럿에서 n.s.였던 영어 Layer Delta($p{=}.0001$)와 Surprisal CV($p{=}.003$)가 표본 확대 후 유의미해졌다. 또한 한국어에서 Layer Delta와 surprisal mean 사이에 유의미한 양의 상관($\rho{=}0.378$, $p{=}.007$)이, 영어에서 surprisal mean과 convergence area 사이에 강한 음의 상관($\rho{=}{-}0.624$, $p{<}.0001$)이 관찰되어, 세 패러다임의 신호가 서로 독립이 아닌 일관된 밀도 반응 체계를 구성함을 확인하였다.
 
 \subsection{검증 실험 2: Minimal Pairs}
 
