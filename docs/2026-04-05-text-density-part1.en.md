@@ -49,6 +49,9 @@ Here is how PER compares to existing metrics:
 | Propositional Density | verb/adj/conjunction count / total words | Structural measurement --- misses implicit propositions |
 | **PER** | $\|\text{tokens}(\text{paraphrase})\| / \|\text{tokens}(\text{original})\|$ | Semantic measurement --- "how much speech is needed for full understanding?" |
 
+![PER by Model](../outputs/step0_fig1_per_by_model.png)
+*Figure 1: PER comparison across 6 LLMs. Korean high-density sentences (red) consistently show the highest PER.*
+
 But wait --- if the measuring instrument is itself an LLM, won't different LLMs give different answers?
 
 ---
@@ -74,6 +77,9 @@ This is not an error. It reveals something deeper: the LLM itself is the density
 One finding I did not expect: **Korean high-density sentences were the most stable across all models**. The top 5 most consistently rated sentences (CV = 0.27--0.28 across all 6 LLMs) were all Korean. Every model agreed: "these are definitely dense." English was messier --- sentences we had labeled "low-density" turned out to carry more hidden content than anticipated (implicit cultural context, procedural assumptions), and model agreement broke down.
 
 The practical lesson: **PER should be used as a relative ranking, not an absolute value.** "This sentence is denser than that one" is meaningful. "This sentence has a PER of 5.3" is model-dependent.
+
+![Correlation Matrix](../outputs/step0_fig2_correlation_matrix.png)
+*Figure 2: Spearman rank correlation matrix between LLMs. GPT+Claude cluster vs Gemini cluster.*
 
 ---
 
@@ -153,6 +159,9 @@ klue/bert-base (Korean Encoder)
 
 Dense sentences produce **larger representational changes** between layers. The intuition checks out: to "unpack" compressed meaning, each layer needs to do more transformational work.
 
+![klue/bert-base signals](../outputs/step1_klue_bert_ko.png)
+*Figure 3: Layer-wise internal signals from klue/bert-base on Korean sentences (red=high density, blue=low density).*
+
 And then came the twist.
 
 ### Encoder and Decoder Process Density in Opposite Directions
@@ -194,6 +203,9 @@ This is the **UID (Uniform Information Density) hypothesis** (Levy & Jaeger, 200
 $$\text{UID}: \quad \text{Var}[s(t_i)] \to \min \quad \text{subject to} \quad \bar{s} \leq C$$
 
 Well-written dense sentences distribute their information evenly. They are consistently rich, not spiky.
+
+![Surprisal Analysis](../outputs/step1_surprisal_boxplot.png)
+*Figure 4: Surprisal analysis with Qwen3-0.6B. Korean high-density sentences show significantly lower CV (p=0.008**).*
 
 Now the decoder's reversed direction makes sense:
 - High density $\to$ uniform surprisal ($\text{CV} \downarrow$) $\to$ similar "surprise" at each token $\to$ similar $\delta_l$ at each step $\to$ **lower aggregate $\sum_l \delta_l$**
@@ -257,6 +269,9 @@ Results (Wilcoxon signed-rank test, paired):
 
 **All signals replicated under meaning-controlled conditions.** The difference is not about vocabulary or style --- it is about compression itself.
 
+![Validation Comparison](../outputs/step3_validation_comparison.png)
+*Figure 6: Propositional density (general) vs syntactic compression (minimal pair) comparison.*
+
 ### PER Correlates with Internal Signals
 
 Going back to the original 20 pilot sentences where I had both PER scores (from the 6-LLM paraphrase experiment) and internal signal measurements, I computed cross-metric correlations:
@@ -264,6 +279,9 @@ Going back to the original 20 pilot sentences where I had both PER scores (from 
 - **PER vs. Surprisal CV** (Korean): $\rho = -0.952$, $p < 0.0001$ --- a near-perfect negative correlation. Sentences that expand the most when paraphrased also have the most uniform surprisal.
 
 This validates PER from the inside: the metric we defined externally (how much does an LLM expand this sentence?) is almost perfectly aligned with what the model experiences internally (how uniformly "hard" is each token?).
+
+![PER-Signal Correlation](../outputs/step3_per_signal_correlation.png)
+*Figure 7: PER vs transformer internal signals. Korean PER↔Surprisal CV shows ρ=-0.952.*
 
 ### Cross-Signal Correlations
 
@@ -290,6 +308,9 @@ $$\text{Var}[s(t_i)] \to \min \quad \text{subject to} \quad \bar{s} \leq C$$
 
 Dense Korean sentences in our dataset follow this pattern with startling precision (Surprisal CV: 0.68 for high-density vs. 0.95 for low-density, p = 0.008 in pilot, p < 0.0001 in validation). The compressed aphoristic form is not just shorter --- it is *informationally optimized*.
 
+![Encoder vs Decoder](../outputs/step1_paradigm_layer_delta.png)
+*Figure 5: Layer Delta comparison between Encoder (klue/bert-base) and Decoder (Qwen3-0.6B). Note the opposite directions.*
+
 ---
 
 ## The Probing Classifier Trap
@@ -301,6 +322,9 @@ Result: **100% accuracy at every single layer.** Layer 0 through layer 11 (BERT)
 I was excited for about ten minutes. Then I ran PCA.
 
 **One principal component was enough for perfect separation.**
+
+![Probing Classifier](../outputs/step1_probing_detail.png)
+*Figure 8: Layer-wise probing classifier results. 100% accuracy at all layers — separable by PCA(1) surface features.*
 
 This is not density encoding. The model is simply seeing "aphorism vs. everyday sentence." "혁명이 숙적을 주인으로..." and "오늘 아침에 일찍 일어나서..." differ in vocabulary from the very first embedding layer. Of course a linear classifier can tell them apart. So can you, at a single glance.
 

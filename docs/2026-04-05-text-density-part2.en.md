@@ -73,6 +73,9 @@ $$c_i^{(k)} = \max_v P_\theta(v \mid x^{(k)}) \qquad H_i^{(k)} = -\sum_v P_\thet
 
 This produces a *denoising heatmap* for each sentence. The x-axis is token position $i$, the y-axis is denoising step $k$. Color represents entropy $H_i^{(k)}$ --- bright means high uncertainty, dark means resolved.
 
+![Denoising Heatmap (EN)](../outputs/step2_heatmap_bert-base-uncased (EN).png)
+*Figure 1: Denoising heatmap from bert-base-uncased on English sentences. Top: entropy, bottom: confidence. The high-density sentence (left) maintains uncertainty longer.*
+
 ---
 
 ## Two Metrics: Crystallization and Convergence
@@ -107,6 +110,9 @@ We began with 5 high-density and 5 low-density sentences per language, the same 
 One signal survived. **English high-density sentences had significantly larger convergence area.** When the model tried to reconstruct a dense English sentence, it experienced more total uncertainty across the entire denoising trajectory. More information packed into the sentence means more positions where the model hesitates --- "what goes here?" is a harder question when the answer carries more meaning.
 
 Korean showed nothing. We will come back to that.
+
+![Convergence Curves (EN)](../outputs/step2_convergence_bert-base-uncased (EN).png)
+*Figure 2: Entropy convergence curves and crystallization distribution for English sentences. High-density sentences (red) show larger convergence area.*
 
 ---
 
@@ -179,6 +185,9 @@ Korean Convergence Area remained stubbornly null ($p = .94$). More on that short
 
 Even when meaning is held constant and only compression varies, the same pattern holds. This is not a vocabulary artifact. The model is responding to density itself.
 
+![Validation Comparison](../outputs/step3_validation_comparison.png)
+*Figure 3: Propositional density (general) vs syntactic compression (minimal pair) — English convergence area is significant in both conditions.*
+
 ---
 
 ## Cross-Signal Correlation: Prediction Difficulty Equals Reconstruction Difficulty
@@ -196,6 +205,9 @@ What does this mean? Sentences that are harder for a Decoder to *predict* (high 
 In Korean, a different cross-signal emerged: Layer Delta and surprisal mean showed a significant positive correlation ($\rho = 0.378$, $p = .007$). Sentences that require more representational transformation across layers (higher Layer Delta) are the same sentences that carry more information per token (higher mean surprisal).
 
 These cross-paradigm correlations confirm that the three signals are not independent flukes. They form a coherent system: different instruments measuring the same underlying property.
+
+![Signal Cross-Correlation (EN)](../outputs/step3_signal_corr_en.png)
+*Figure 4: English signal cross-correlations. Surprisal Mean ↔ Convergence Area (ρ=-0.624***) confirms 'prediction difficulty ≈ reconstruction difficulty.'*
 
 ---
 
@@ -239,6 +251,9 @@ But "harder" means different things depending on the paradigm:
 - For the Encoder: "more transformation is needed"
 - For the Decoder: "prediction is uniformly difficult"
 - For the Diffusion model: "reconstruction stays uncertain longer"
+
+![PER-Signal Correlation](../outputs/step3_per_signal_correlation.png)
+*Figure 5: PER vs internal signals. Higher PER correlates with higher surprisal (ρ=0.867) and lower CV (ρ=-0.952).*
 
 ---
 
